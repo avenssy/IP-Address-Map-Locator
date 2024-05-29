@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import axios from 'axios';
+import { signup } from './apiRepository';
 
 const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -9,12 +9,13 @@ const SignupScreen = ({ navigation }) => {
 
   const handleSignup = async () => {
     try {
-      const response = await axios.post('http://localhost:8000/api/signup', { email, password });
-      if (response.status === 201) {
-        // Navigate to Login Screen
+      const response = await signup(email, password);
+      console.log("Signup response:", response);
+      if (response) {
         navigation.navigate('Login');
       }
     } catch (err) {
+      console.error("Signup error:", err);
       setError('Signup failed');
     }
   };

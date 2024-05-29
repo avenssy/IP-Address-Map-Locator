@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, ScrollView, TouchableOpacity, Button } from 'react-native';
-import WebView from 'react-native-webview';
+import CheckBox from 'expo-checkbox';
 import axios from 'axios';
 
 const HomeScreen = () => {
+  let clearFlag = false;
   const [ipAddress, setIpAddress] = useState('');
   const [locationData, setLocationData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newIpAddress, setNewIpAddress] = useState('');
   const [history, setHistory] = useState([]);
   const [invalidIpError, setInvalidIpError] = useState('');
+  const [selectedItems, setSelectedItems] = useState([]);
 
   useEffect(() => {
     fetchDefaultIpAddress();
@@ -37,7 +39,7 @@ const HomeScreen = () => {
       const geoResponse = await axios.get(`https://ipinfo.io/${ip}/geo`);
       setLocationData(geoResponse.data);
       setLoading(false);
-      addToHistory(ip);
+      addToHistory(ip);      
       setInvalidIpError('');
     } catch (error) {
       console.error("Error fetching location data: ", error);
@@ -50,18 +52,25 @@ const HomeScreen = () => {
     setHistory([ip, ...history]);
   };
 
-  const deleteFromHistory = (indexToDelete) => {
-    const updatedHistory = history.filter((_, index) => index !== indexToDelete);
+  const deleteFromHistory = () => {
+    const updatedHistory = history.filter((_, index) => !selectedItems.includes(index));
     setHistory(updatedHistory);
+    setSelectedItems([]);
   };
 
-  const clearHistory = () => {
-    setHistory([]);
-    if (history.length > 0) {
-      setIpAddress(history[0]);
+  const clearHistory = async () => {
+    try {
+      const response = await axios.get('https://api.ipify.org?format=json');
+      const ip = response.data.ip;
+      clearFlag = true;
+      setHistory([]);
+      setIpAddress(ip);
+      fetchLocationData(ip);
+    } catch (error) {
+      console.error("Error fetching default IP address: ", error);
     }
   };
-
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>IP Location Finder</Text>
@@ -99,21 +108,27 @@ const HomeScreen = () => {
               {history.length > 0 && history.map((ip, index) => (
                 <TouchableOpacity key={index} onPress={() => {
                   setIpAddress(ip);
-                  deleteFromHistory(index);
                 }}>
-                  <Text style={styles.historyItem}>{ip}</Text>
+                  <View style={styles.historyItemContainer}>
+                    <CheckBox
+                      value={selectedItems.includes(index)}
+                      onValueChange={(newValue) => {
+                        if (newValue) {
+                          setSelectedItems([...selectedItems, index]);
+                        } else {
+                          setSelectedItems(selectedItems.filter((item) => item !== index));
+                        }
+                      }}
+                    />
+                    <Text style={styles.historyItem}>{ip}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
+          <Button title="Delete Selected" onPress={deleteFromHistory} />
           <Button title="Clear History" onPress={clearHistory} />
         </>
-      )}
-      {locationData && (
-        <WebView
-          style={styles.map}
-          source={{ uri: `https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${locationData.loc}&zoom=15` }}
-        />
       )}
     </View>
   );
@@ -168,14 +183,22 @@ const styles = StyleSheet.create({
   historyDropdown: {
     maxHeight: 150,
   },
+  historyItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   historyItem: {
     fontSize: 16,
     paddingVertical: 5,
+    marginLeft: 5,
   },
   map: {
     marginTop: 20,
     width: '100%',
-    aspectRatio: 1.5, // Adjust the aspect ratio as needed
+    aspectRatio: 1.5, 
+  },
+  error: {
+    color: 'red',
   },
 });
 
